@@ -18,23 +18,27 @@ admin.initializeApp({
 app.use(express.json());
 app.use(cors());
 
-const verifyFbToken = (req, res, next) => {
+
+const verifyFbToken = async (req, res, next) => {
   const token = req.headers.authorization;
   if (!token) {
-    res.status(401).send({ message: "Unauthorized Access" });
+    return res.status(401).send({ message: "Unauthorized Access" });
   }
+
   try {
     const idToken = token.split(" ")[1];
     if (!idToken) {
-      res.status(401).send({ message: "Unauthorized Access" });
+      return res.status(401).send({ message: "Unauthorized Access" });
     }
-    const decoded = admin.auth.verifyFbToken(idToken);
-     req.authorizedEmail = decoded.email;
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    req.authorizedEmail = decoded.email;
     next();
   } catch {
-    res.status(401).send({ message: "Unauthorized Access" });
+    return res.status(401).send({ message: "Unauthorized Access" });
   }
 };
+
 //mongodb client setup
 
 const uri = `mongodb+srv://Md-Shahed-Chowdhury:${process.env.DB_PASS}@cluster0.9y5oe7g.mongodb.net/?appName=Cluster0`;
@@ -68,9 +72,24 @@ async function run() {
     //blood req api
     app.post("/add-blood-request",verifyFbToken, async (req, res) => {
       const newReq = req.body;
+      console.log(req.authorizedEmail);
       const result = await bloodRequests.insertOne(newReq);
       res.send(result);
     });
+
+    app.get("/my-blood-request",verifyFbToken,async(req,res)=>{
+      const query = {requesterEmail:req.authorizedEmail};
+       console.log(req.authorizedEmail)
+      const cursor = bloodRequests.find(query);
+      const result =await cursor.toArray();
+      res.send(result);
+    })
+    app.get("/pendingRequest",async(req,res)=>{
+      const query = {status:"pending"};
+      const cursor = bloodRequests.find(query);
+      const result =await cursor.toArray();
+      res.send(result);
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
