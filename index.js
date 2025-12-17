@@ -18,7 +18,6 @@ admin.initializeApp({
 app.use(express.json());
 app.use(cors());
 
-
 const verifyFbToken = async (req, res, next) => {
   const token = req.headers.authorization;
   if (!token) {
@@ -70,26 +69,28 @@ async function run() {
     });
 
     //blood req api
-    app.post("/add-blood-request",verifyFbToken, async (req, res) => {
+    app.post("/add-blood-request", verifyFbToken, async (req, res) => {
       const newReq = req.body;
       console.log(req.authorizedEmail);
       const result = await bloodRequests.insertOne(newReq);
       res.send(result);
     });
 
-    app.get("/my-blood-request",verifyFbToken,async(req,res)=>{
-      const query = {requesterEmail:req.authorizedEmail};
-       console.log(req.authorizedEmail)
+    app.get("/my-blood-request", verifyFbToken, async (req, res) => {
+      const query = { requesterEmail: req.authorizedEmail };
+      console.log(req.authorizedEmail);
       const cursor = bloodRequests.find(query);
-      const result =await cursor.toArray();
+      const result = await cursor.toArray();
       res.send(result);
-    })
-    app.get("/pendingRequest",async(req,res)=>{
-      const query = {status:"pending"};
+    });
+    app.get("/pendingRequest", async (req, res) => {
+      const query = { status: "pending" };
       const cursor = bloodRequests.find(query);
-      const result =await cursor.toArray();
+      const result = await cursor.toArray();
       res.send(result);
-    })
+    });
+
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
