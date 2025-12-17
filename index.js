@@ -98,7 +98,19 @@ async function run() {
       res.send(result);
     });
 
-    
+    app.patch("/pendingRequestUpdate/:id",async(req,res)=>{
+      const id = new ObjectId(req.params.id);
+      const query = { _id: id };
+       const update = {
+        $set: {
+          status:"inprogress",
+        },
+      };
+    const options = {};
+    const result = await bloodRequests.updateOne(query, update, options);
+
+      res.send(result);
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
