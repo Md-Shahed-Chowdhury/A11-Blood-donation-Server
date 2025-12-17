@@ -141,6 +141,28 @@ async function run() {
 
       res.send(result);
     });
+    // Update donation status
+    app.patch("/update-donation-status/:id", async (req, res) => {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const result = await bloodRequests.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } }
+      );
+
+      res.send(result);
+    });
+    // Delete donation request
+    app.delete("/delete-donation-request/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const result = await bloodRequests.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
