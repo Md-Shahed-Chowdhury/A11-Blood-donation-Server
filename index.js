@@ -68,13 +68,35 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/viewSearchedDonors",async (req, res) => {
-      
+    app.post("/viewSearchedDonors", async (req, res) => {
       const query = req.body;
-      const cursor =  Users.find(query);
+      const cursor = Users.find(query);
       const result = await cursor.toArray();
       res.send(result);
-    })
+    });
+
+    app.get("/getRole/:email", async (req, res) => {
+      const { email } = req.params;
+      const query = { email };
+      const result = await Users.findOne(query);
+      res.send(result);
+    });
+
+    // Update user profile
+    app.patch("/updateProfile/:email", async (req, res) => {
+      const { email } = req.params;
+      const updateData = req.body;
+
+      const result = await Users.updateOne({ email }, { $set: updateData });
+
+      res.send(result);
+    });
+    // Get user profile by email
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await Users.findOne({ email });
+      res.send(result);
+    });
 
     //blood req api
     app.post("/add-blood-request", verifyFbToken, async (req, res) => {
@@ -98,7 +120,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/pendingDetails/:id", async (req, res) => {
+    app.get("/pendingDetails/:id", verifyFbToken, async (req, res) => {
       const id = new ObjectId(req.params.id);
       const query = { _id: id };
 
@@ -106,21 +128,19 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/pendingRequestUpdate/:id",async(req,res)=>{
+    app.patch("/pendingRequestUpdate/:id", async (req, res) => {
       const id = new ObjectId(req.params.id);
       const query = { _id: id };
-       const update = {
+      const update = {
         $set: {
-          status:"inprogress",
+          status: "inprogress",
         },
       };
-    const options = {};
-    const result = await bloodRequests.updateOne(query, update, options);
+      const options = {};
+      const result = await bloodRequests.updateOne(query, update, options);
 
       res.send(result);
-    })
-
-    
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
