@@ -68,6 +68,14 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/viewSearchedDonors",async (req, res) => {
+      
+      const query = req.body;
+      const cursor =  Users.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
     //blood req api
     app.post("/add-blood-request", verifyFbToken, async (req, res) => {
       const newReq = req.body;
@@ -111,6 +119,8 @@ async function run() {
 
       res.send(result);
     })
+
+    
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
