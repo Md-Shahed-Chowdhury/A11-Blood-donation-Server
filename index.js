@@ -153,6 +153,19 @@ async function run() {
 
       res.send(result);
     });
+
+    app.patch("/update-blood-request/:id", async (req, res) => {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const result = await bloodRequests.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData }
+      );
+
+      res.send(result);
+    });
+
     // Delete donation request
     app.delete("/delete-donation-request/:id", async (req, res) => {
       const { id } = req.params;
