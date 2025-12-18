@@ -86,6 +86,26 @@ async function run() {
       const result = await Users.find({}).toArray();
       res.send(result);
     });
+    // GET all users with pagination & status filter
+    app.get("/all-users", async (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const status = req.query.status; // active | blocked | undefined
+
+      const query = status ? { status } : {};
+
+      const skip = (page - 1) * limit;
+
+      const users = await Users.find(query).skip(skip).limit(limit).toArray();
+
+      const total = await Users.countDocuments(query);
+
+      res.send({
+        users,
+        total,
+        totalPages: Math.ceil(total / limit),
+      });
+    });
 
     // Update user profile
     app.patch("/updateProfile/:email", async (req, res) => {
