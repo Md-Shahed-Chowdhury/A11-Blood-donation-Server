@@ -90,7 +90,7 @@ async function run() {
     app.get("/all-users", async (req, res) => {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-      const status = req.query.status; // active | blocked | undefined
+      const status = req.query.status; 
 
       const query = status ? { status } : {};
 
@@ -105,6 +105,24 @@ async function run() {
         total,
         totalPages: Math.ceil(total / limit),
       });
+    });
+    // PATCH update user status
+    app.patch("/update-user-status/:email", async (req, res) => {
+      const { email } = req.params;
+      const { status } = req.body; 
+
+      const result = await Users.updateOne({ email }, { $set: { status } });
+
+      res.send(result);
+    });
+    // PATCH update user role
+    app.patch("/update-user-role/:email", async (req, res) => {
+      const { email } = req.params;
+      const { role } = req.body; 
+
+      const result = await Users.updateOne({ email }, { $set: { role } });
+
+      res.send(result);
     });
 
     // Update user profile
@@ -153,6 +171,32 @@ async function run() {
       const skip = (page - 1) * limit;
 
       const query = { requesterEmail: email };
+
+      const total = await bloodRequests.countDocuments(query);
+
+      const result = await bloodRequests
+        .find(query)
+        .sort({ createdAt: -1 }) // latest first
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      res.send({
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        requests: result,
+      });
+    });
+    // All donation requests with pagination
+    app.get("/all-blood-request-paginated", verifyFbToken, async (req, res) => {
+      const email = req.authorizedEmail;
+
+      const page = parseInt(req.query.page) || 1;
+      const limit = 10;
+      const skip = (page - 1) * limit;
+
+      const query = {};
 
       const total = await bloodRequests.countDocuments(query);
 
