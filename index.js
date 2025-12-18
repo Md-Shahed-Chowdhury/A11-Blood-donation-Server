@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const crypto = require("crypto");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.port || 3000;
@@ -58,6 +60,7 @@ async function run() {
     const database = client.db("Blood-donation");
     const Users = database.collection("Users");
     const bloodRequests = database.collection("Blood-request");
+    const paymentCollection = database.collection('paymentCollection');
 
     //user api
     app.post("/newUser", async (req, res) => {
@@ -82,15 +85,15 @@ async function run() {
       res.send(result);
     });
     // Get all users
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyFbToken, async (req, res) => {
       const result = await Users.find({}).toArray();
       res.send(result);
     });
     // GET all users with pagination & status filter
-    app.get("/all-users", async (req, res) => {
+    app.get("/all-users", verifyFbToken, async (req, res) => {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-      const status = req.query.status; 
+      const status = req.query.status;
 
       const query = status ? { status } : {};
 
@@ -107,18 +110,18 @@ async function run() {
       });
     });
     // PATCH update user status
-    app.patch("/update-user-status/:email", async (req, res) => {
+    app.patch("/update-user-status/:email", verifyFbToken, async (req, res) => {
       const { email } = req.params;
-      const { status } = req.body; 
+      const { status } = req.body;
 
       const result = await Users.updateOne({ email }, { $set: { status } });
 
       res.send(result);
     });
     // PATCH update user role
-    app.patch("/update-user-role/:email", async (req, res) => {
+    app.patch("/update-user-role/:email", verifyFbToken, async (req, res) => {
       const { email } = req.params;
-      const { role } = req.body; 
+      const { role } = req.body;
 
       const result = await Users.updateOne({ email }, { $set: { role } });
 
@@ -126,7 +129,7 @@ async function run() {
     });
 
     // Update user profile
-    app.patch("/updateProfile/:email", async (req, res) => {
+    app.patch("/updateProfile/:email", verifyFbToken, async (req, res) => {
       const { email } = req.params;
       const updateData = req.body;
 
@@ -135,60 +138,81 @@ async function run() {
       res.send(result);
     });
     // Get user profile by email
-    app.get("/users/:email", async (req, res) => {
+    app.get("/users/:email", verifyFbToken, async (req, res) => {
       const email = req.params.email;
       const result = await Users.findOne({ email });
       res.send(result);
     });
 
     //blood req api
-    app.post("/add-blood-request", verifyFbToken, async (req, res) => {
-      const newReq = req.body;
-      console.log(req.authorizedEmail);
-      const result = await bloodRequests.insertOne(newReq);
-      res.send(result);
-    });
+    app.post(
+      "/add-blood-request",
+      verifyFbToken,
+      verifyFbToken,
+      async (req, res) => {
+        const newReq = req.body;
+        console.log(req.authorizedEmail);
+        const result = await bloodRequests.insertOne(newReq);
+        res.send(result);
+      }
+    );
     // Get all blood requests
-    app.get("/blood-requests", async (req, res) => {
+    app.get("/blood-requests", verifyFbToken, async (req, res) => {
       const result = await bloodRequests.find({}).toArray();
       res.send(result);
     });
 
-    app.get("/my-blood-request", verifyFbToken, async (req, res) => {
-      const query = { requesterEmail: req.authorizedEmail };
-      console.log(req.authorizedEmail);
-      const cursor = bloodRequests.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+    app.get(
+      "/my-blood-request",
+      verifyFbToken,
+      verifyFbToken,
+      async (req, res) => {
+        const query = { requesterEmail: req.authorizedEmail };
+        console.log(req.authorizedEmail);
+        const cursor = bloodRequests.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
+      }
+    );
 
-    // My donation requests with pagination
-    app.get("/my-blood-request-paginated", verifyFbToken, async (req, res) => {
-      const email = req.authorizedEmail;
+    // My donation requests with pagination + status filter
+    app.get(
+      "/my-blood-request-paginated",
+      verifyFbToken,
+      verifyFbToken,
+      async (req, res) => {
+        const email = req.authorizedEmail;
 
-      const page = parseInt(req.query.page) || 1;
-      const limit = 10;
-      const skip = (page - 1) * limit;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const skip = (page - 1) * limit;
 
-      const query = { requesterEmail: email };
+        const status = req.query.status; // pending | inprogress | done | canceled
 
-      const total = await bloodRequests.countDocuments(query);
+        const query = { requesterEmail: email };
 
-      const result = await bloodRequests
-        .find(query)
-        .sort({ createdAt: -1 }) // latest first
-        .skip(skip)
-        .limit(limit)
-        .toArray();
+        if (status) {
+          query.status = status;
+        }
 
-      res.send({
-        total,
-        page,
-        totalPages: Math.ceil(total / limit),
-        requests: result,
-      });
-    });
-    // All donation requests with pagination
+        const total = await bloodRequests.countDocuments(query);
+
+        const result = await bloodRequests
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray();
+
+        res.send({
+          total,
+          page,
+          totalPages: Math.ceil(total / limit),
+          requests: result,
+        });
+      }
+    );
+    // All donation requests with pagination + status filter
     app.get("/all-blood-request-paginated", verifyFbToken, async (req, res) => {
       const email = req.authorizedEmail;
 
@@ -196,13 +220,19 @@ async function run() {
       const limit = 10;
       const skip = (page - 1) * limit;
 
+      const status = req.query.status;
+
       const query = {};
+
+      if (status) {
+        query.status = status;
+      }
 
       const total = await bloodRequests.countDocuments(query);
 
       const result = await bloodRequests
         .find(query)
-        .sort({ createdAt: -1 }) // latest first
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .toArray();
@@ -244,19 +274,23 @@ async function run() {
       res.send(result);
     });
     // Update donation status
-    app.patch("/update-donation-status/:id", async (req, res) => {
-      const { id } = req.params;
-      const { status } = req.body;
+    app.patch(
+      "/update-donation-status/:id",
+      verifyFbToken,
+      async (req, res) => {
+        const { id } = req.params;
+        const { status } = req.body;
 
-      const result = await bloodRequests.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { status } }
-      );
+        const result = await bloodRequests.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
-    app.patch("/update-blood-request/:id", async (req, res) => {
+    app.patch("/update-blood-request/:id", verifyFbToken, async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
 
@@ -269,14 +303,65 @@ async function run() {
     });
 
     // Delete donation request
-    app.delete("/delete-donation-request/:id", async (req, res) => {
-      const { id } = req.params;
+    app.delete(
+      "/delete-donation-request/:id",
+      verifyFbToken,
+      async (req, res) => {
+        const { id } = req.params;
 
-      const result = await bloodRequests.deleteOne({
-        _id: new ObjectId(id),
+        const result = await bloodRequests.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send(result);
+      }
+    );
+    //payement stripe
+    app.post("/give-fund", async (req, res) => {
+      const donation = req.body;
+      const amount = parseInt(donation.amount) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: amount,
+              product_data: {
+                name: "please donate",
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        metadata: {
+          donorName: donation?.donorName,
+        },
+        customer_email: donation?.donorEmail,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
       });
+      res.send({ url: session.url });
+    });
+    app.post("/payment-success", async (req, res) => {
+      const { session_id } = req.query;
+      console.log(session_id);
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      console.log(session);
+      const transactionId = session.payment_intent;
+      if(session.payment_status=='paid'){
+        const paymentInfo = {
+          amount:session.amount_total/100,
+          currency:session.currency,
+          donorEmail:session.customer_email,
+          transactionId,
+          payment_status : session.payment_status,
+          paidAt:new Date(),
+        }
+        const result = await paymentCollection.insertOne(paymentInfo);
+        return res.send(result);
+      }
 
-      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
