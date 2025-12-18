@@ -113,6 +113,34 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+
+    // My donation requests with pagination
+    app.get("/my-blood-request-paginated", verifyFbToken, async (req, res) => {
+      const email = req.authorizedEmail;
+
+      const page = parseInt(req.query.page) || 1;
+      const limit = 10;
+      const skip = (page - 1) * limit;
+
+      const query = { requesterEmail: email };
+
+      const total = await bloodRequests.countDocuments(query);
+
+      const result = await bloodRequests
+        .find(query)
+        .sort({ createdAt: -1 }) // latest first
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      res.send({
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        requests: result,
+      });
+    });
+
     app.get("/pendingRequest", async (req, res) => {
       const query = { status: "pending" };
       const cursor = bloodRequests.find(query);
