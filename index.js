@@ -81,6 +81,11 @@ async function run() {
       const result = await Users.findOne(query);
       res.send(result);
     });
+    // Get all users
+    app.get("/users", async (req, res) => {
+      const result = await Users.find({}).toArray();
+      res.send(result);
+    });
 
     // Update user profile
     app.patch("/updateProfile/:email", async (req, res) => {
@@ -103,6 +108,11 @@ async function run() {
       const newReq = req.body;
       console.log(req.authorizedEmail);
       const result = await bloodRequests.insertOne(newReq);
+      res.send(result);
+    });
+    // Get all blood requests
+    app.get("/blood-requests", async (req, res) => {
+      const result = await bloodRequests.find({}).toArray();
       res.send(result);
     });
 
